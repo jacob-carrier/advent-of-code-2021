@@ -1,68 +1,92 @@
 from collections import Counter
+from math import floor
 
+def binary_search_set(draw, board):
+    if not board:
+        return
 
-def track_og(bit_index, rows, max_bit_index=0):
-    if len(rows) == 1:
-        return rows[0]
+    if len(board) == 1:
+        if board[0]['draw'] == draw:
+            board[0]['selected'] = True
+        return
+
+    middle = floor(len(board)/2)
+
+    if board[middle]['draw'] == draw:
+        board[middle]['selected'] = True
+        return
     
-    if bit_index == max_bit_index:
-        return rows[0]
+    if draw < board[middle]['draw']:
+        left = board[:middle]
+        return binary_search_set(draw, left)
     
-
-    bit_array = [line[bit_index] for line in rows]
-    data = Counter(bit_array)
-    results = data.most_common()
-    highest_bit = results[0][0]
-    highest_bit_count = results[0][1]
-    lowest_bit_count = results[-1][1]
-    if highest_bit_count == lowest_bit_count:
-        # For Oxygen Generaor, we know we need to keep to keep all the ones with 1 to break the tie
-        # Opposite for the CO2
-        rows = [line for line in rows if line[bit_index] == '1']
-    else:
-        rows = [line for line in rows if line[bit_index] == highest_bit]
-    bit_index += 1
-
-    return track_og(bit_index, rows, max_bit_index=max_bit_index)
+    if draw > board[middle]['draw']:
+        right = board[middle:]
+        return binary_search_set(draw, right)
 
 
-def track_co2(bit_index, rows, max_bit_index=0):
-    if len(rows) == 1:
-        return rows[0]
+def generate_boards(f):
+    boards = []
+    f.readline()
+    board = []
+    row = 0
+    for line in f.readlines():
+        line = line.strip()
+        if line:
+            # We are generating a new board
+            index = 0
+            for item in line.split(' '):
+                if item.strip():
+                    board.append({'draw': int(item), 'selected': False, 'index': index, 'row': row})
+                    index += 1
+            row += 1
+        else:
+            # Ensure this is sorted in order for the binary search set method
+            board = sorted(board, key=lambda item: item['draw'])
+            boards.append(board)
+            board = []
+            row = 0
+    boards.append(board)
+    return boards
+
+
+def scan_board(board):
+    for row in range(5):
+        items = [item for item in board if item['row'] == row]
+        result = all(item['selected'] == True for item in items)
+        if result: return result
+
+    for col in range(5):
+        items = [item for item in board if item['index'] == col]
+        result = all(item['selected'] == True for item in items)
+        if result: return result
     
-    if bit_index == max_bit_index:
-        return rows[0]
-    
-
-    bit_array = [line[bit_index] for line in rows]
-    data = Counter(bit_array)
-    results = data.most_common()
-    lowest_bit = results[1][0]
-    highest_bit_count = results[0][1]
-    lowest_bit_count = results[-1][1]
-    if highest_bit_count == lowest_bit_count:
-        # For C02 Scrubbing, we know we need to keep to keep all the ones with 0 to break the tie
-        rows = [line for line in rows if line[bit_index] == '0']
-    else:
-        rows = [line for line in rows if line[bit_index] == lowest_bit]
-    bit_index += 1
-
-    return track_co2(bit_index, rows, max_bit_index=max_bit_index)
-
+    return False
 
 
 if __name__ == '__main__':
-
     with open('./sample.txt') as f:
-        row_wise = [line.strip('\n') for line in f.readlines()]
+        bingo_sequence = f.readline().rstrip('\n').split(',')
+        bingo_sequence = [int(item) for item in bingo_sequence]
         
-        og = track_og(0, row_wise, max_bit_index=len(row_wise[0]))
-        co2 = track_co2(0, row_wise, max_bit_index=len(row_wise[0]))
+        boards = generate_boards(f)
+        winning_boards = []
+        previous_result = None
+        for draw in bingo_sequence:
+            for index, board in enumerate(boards):
 
-        # The second paramater in the int cast is the base- value you want, since we want base-2 for binary, this wil
-        # cast it and evaluate it to the proper decimal value for the bit-string
-        oxygen_generated = int(og, 2)
-        co2_scrubbed = int(co2, 2)
-        life_support = oxygen_generated * co2_scrubbed
-        print(f"Life Support is - {life_support}")          
-            
+                result = scan_board(board)
+                if result:
+                    # If the board is already a winner, we can skip it
+                    continue
+
+                binary_search_set(draw, board)
+                result = scan_board(board)
+
+                if result:
+                    # Track the winning draw
+                    board_sum = sum(item['draw'] for item in board if item['selected'] == False)
+                    result = board_sum * draw 
+                    previous_result = result
+        
+        print(previous_result)

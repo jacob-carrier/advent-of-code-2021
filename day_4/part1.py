@@ -41,6 +41,7 @@ def generate_boards(f):
                     index += 1
             row += 1
         else:
+            # Ensure this is sorted in order for the binary search set method
             board = sorted(board, key=lambda item: item['draw'])
             boards.append(board)
             board = []
